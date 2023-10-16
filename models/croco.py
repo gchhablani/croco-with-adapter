@@ -34,6 +34,10 @@ class CroCoNet(nn.Module):
                  norm_layer=partial(nn.LayerNorm, eps=1e-6),
                  norm_im2_in_dec=True,   # whether to apply normalization of the 'memory' = (second image) in the decoder 
                  pos_embed='cosine',     # positional embedding (either cosine or RoPE100)
+                 adapter=False,
+                 adapter_bottleneck=64,
+                 adapter_scalar="0.1",
+                 adapter_style='parallel'
                 ):
                 
         super(CroCoNet, self).__init__()
@@ -67,7 +71,8 @@ class CroCoNet(nn.Module):
         self.enc_depth = enc_depth
         self.enc_embed_dim = enc_embed_dim
         self.enc_blocks = nn.ModuleList([
-            Block(enc_embed_dim, enc_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer, rope=self.rope)
+            Block(enc_embed_dim, enc_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer, rope=self.rope,
+                  adapter=adapter, adapter_bottleneck=adapter_bottleneck, adapter_scalar=adapter_scalar, adapter_style=adapter_style)
             for i in range(enc_depth)])
         self.enc_norm = norm_layer(enc_embed_dim)
         
@@ -75,7 +80,8 @@ class CroCoNet(nn.Module):
         self._set_mask_token(dec_embed_dim)
 
         # decoder 
-        self._set_decoder(enc_embed_dim, dec_embed_dim, dec_num_heads, dec_depth, mlp_ratio, norm_layer, norm_im2_in_dec)
+        self._set_decoder(enc_embed_dim, dec_embed_dim, dec_num_heads, dec_depth, mlp_ratio, norm_layer, norm_im2_in_dec,
+                          adapter=adapter, adapter_bottleneck=adapter_bottleneck, adapter_scalar=adapter_scalar, adapter_style=adapter_style)
         
         # prediction head 
         self._set_prediction_head(dec_embed_dim, patch_size)
@@ -89,14 +95,15 @@ class CroCoNet(nn.Module):
     def _set_mask_token(self, dec_embed_dim):
         self.mask_token = nn.Parameter(torch.zeros(1, 1, dec_embed_dim))
         
-    def _set_decoder(self, enc_embed_dim, dec_embed_dim, dec_num_heads, dec_depth, mlp_ratio, norm_layer, norm_im2_in_dec):
+    def _set_decoder(self, enc_embed_dim, dec_embed_dim, dec_num_heads, dec_depth, mlp_ratio, norm_layer, norm_im2_in_dec, adapter, adapter_bottleneck, adapter_scalar, adapter_style):
         self.dec_depth = dec_depth
         self.dec_embed_dim = dec_embed_dim
         # transfer from encoder to decoder 
         self.decoder_embed = nn.Linear(enc_embed_dim, dec_embed_dim, bias=True)
         # transformer for the decoder 
         self.dec_blocks = nn.ModuleList([
-            DecoderBlock(dec_embed_dim, dec_num_heads, mlp_ratio=mlp_ratio, qkv_bias=True, norm_layer=norm_layer, norm_mem=norm_im2_in_dec, rope=self.rope)
+            DecoderBlock(dec_embed_dim, dec_num_heads, mlp_ratio=mlp_ratio, qkv_bias=True, norm_layer=norm_layer, norm_mem=norm_im2_in_dec, rope=self.rope,
+                         adapter=adapter, adapter_bottleneck=adapter_bottleneck, adapter_scalar=adapter_scalar, adapter_style=adapter_style)
             for i in range(dec_depth)])
         # final norm layer 
         self.dec_norm = norm_layer(dec_embed_dim)
