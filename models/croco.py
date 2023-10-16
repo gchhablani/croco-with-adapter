@@ -36,7 +36,7 @@ class CroCoNet(nn.Module):
                  pos_embed='cosine',     # positional embedding (either cosine or RoPE100)
                  adapter=False,
                  adapter_bottleneck=64,
-                 adapter_scalar="0.1",
+                 adapter_scalar='0.1',
                  adapter_style='parallel'
                 ):
                 
@@ -118,7 +118,16 @@ class CroCoNet(nn.Module):
         # mask tokens
         if self.mask_token is not None: torch.nn.init.normal_(self.mask_token, std=.02)
         # linears and layer norms
-        self.apply(self._init_weights)
+        # self.apply(self._init_weights)
+        self.recursive_apply(self)
+        
+    def recursive_apply(self, m):
+        for name, m2 in m.named_children():
+            if "adaptmlp" in name:
+                return
+            else:
+                self.recursive_apply(m2)
+        self._init_weights(m)
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -241,7 +250,7 @@ class CroCoNet(nn.Module):
         masks are also returned as B x N just in case 
         """
         # encoder of the masked first image 
-        feat1, pos1, mask1 = self._encode_image(img1, do_mask=True)
+        feat1, pos1, mask1 = self._encode_image(img1, do_mask=False)
         # encoder of the second image 
         feat2, pos2, _ = self._encode_image(img2, do_mask=False)
         # decoder 

@@ -116,7 +116,7 @@ class Block(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, rope=None,
-                 adapter=False, adapter_bottleneck=64, adapter_scalar="0.1", adapter_style='parallel'):
+                 adapter=False, adapter_bottleneck=64, adapter_scalar="0.1", adapter_style="parallel"):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = Attention(dim, rope=rope, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
@@ -142,12 +142,12 @@ class Block(nn.Module):
 
     def forward(self, x, xpos):
         x = x + self.drop_path(self.attn(self.norm1(x), xpos))
-        if self.adapter and self.adapter_syle == "parallel":
+        if self.adapter and self.adapter_style == "parallel":
             adapt_x = self.adaptmlp(x, add_residual=False)
         residual = x
         x = self.drop_path(self.mlp(self.norm2(x)))
         if self.adapter:
-            if self.adapter_syle == "sequential":
+            if self.adapter_style == "sequential":
                 x = self.adaptmlp(x)
             elif self.adapter_style == "parallel":
                 x = x + adapt_x
@@ -230,12 +230,12 @@ class DecoderBlock(nn.Module):
 
         # NOTE: Assumption here is that adapter is only for the MLP part.
         # This means that the cross-attention happens before the mlp comes into the picture.
-        if self.adapter and self.adapter_syle == "parallel":
+        if self.adapter and self.adapter_style == "parallel":
             adapt_x = self.adaptmlp(x, add_residual=False)
         residual = x
-        x = x + self.drop_path(self.mlp(self.norm3(x)))
+        x = self.drop_path(self.mlp(self.norm3(x)))
         if self.adapter:
-            if self.adapter_syle == "sequential":
+            if self.adapter_style == "sequential":
                 x = self.adaptmlp(x)
             elif self.adapter_style == "parallel":
                 x = x + adapt_x
